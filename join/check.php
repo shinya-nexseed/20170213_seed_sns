@@ -16,6 +16,7 @@ if (!empty($_POST)) {
 		$nick_name = $_SESSION['join']['nick_name'];
 		$email = $_SESSION['join']['email'];
 		$password = $_SESSION['join']['password'];
+		$password = sha1($password);
 		$picture_path = $_SESSION['join']['picture_path'];
 		// DBに会員情報を登録
 		try{
@@ -33,8 +34,12 @@ if (!empty($_POST)) {
 				$stmt->execute($data);
 
 				// $_SESSIONの情報を削除
+				unset($_SESSION['join']);
 
 				// thanks.phpへ遷移
+				header('Location: thanks.php');
+				exit();
+
 		} catch(PDOException $e) {
 				// 例外が発生した場合の処理
 				echo 'SQL文実行時エラー: ' . $e->getMessage();
