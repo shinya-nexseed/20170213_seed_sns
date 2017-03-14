@@ -2,6 +2,10 @@
 session_start();
 require('dbconnect.php');
 
+$email = '';
+$password = '';
+
+$errors = array();
 
 // ログインボタンが押されたとき
 if (!empty($_POST)) {
@@ -18,14 +22,20 @@ if (!empty($_POST)) {
 
 				if ($record == false) {
 						// そうでなければエラーメッセージ
-						echo 'ログイン処理失敗';
+						// echo 'ログイン処理失敗';
+						$errors['login'] = 'failed';
 				} else {
 						// されていればログイン処理
-						echo 'ログイン処理成功';
+						// echo 'ログイン処理成功';
 						$_SESSION['login_member_id'] = $record['member_id'];
+						$_SESSION['time'] = time();
+						// ログインした際の時間をセッションに保存
 						header('Location: top.php');
 						exit();
 				}
+		} else {
+				// 入力フォームが空だった場合の処理
+				$errors['login'] = 'blank';
 		}
 }
 ?>
@@ -38,30 +48,24 @@ if (!empty($_POST)) {
 <body>
 	<h1>ログイン</h1>
 	<form method="POST" action="">
-	$_POST['email']
-		
 		<div>
 			<label>メールアドレス</label><br>
 			<input type="email" name="email" value="<?php echo $email; ?>">
-			<?php if(isset($errors['email']) && $errors['email'] == 'blank'): ?> <!-- コロン構文 -->
+			<?php if(isset($errors['login']) && $errors['login'] == 'blank'): ?> <!-- コロン構文 -->
 				<p style="color: red; font-size: 10px; margin-top: 2px;">
-					メールアドレスを入力してください
+					メールアドレスとパスワードを入力してください
+				</p>
+			<?php endif; ?>
+
+			<?php if(isset($errors['login']) && $errors['login'] == 'failed'): ?> <!-- コロン構文 -->
+				<p style="color: red; font-size: 10px; margin-top: 2px;">
+					ログインに失敗しました。再度正しい情報でログインしてください
 				</p>
 			<?php endif; ?>
 		</div>
 		<div>
 			<label>パスワード</label><br>
 			<input type="password" name="password" value="<?php echo $password; ?>">
-			<?php if(isset($errors['password']) && $errors['password'] == 'blank'): ?> <!-- コロン構文 -->
-				<p style="color: red; font-size: 10px; margin-top: 2px;">
-					パスワードを入力してください
-				</p>
-			<?php endif; ?>
-			<?php if(isset($errors['password']) && $errors['password'] == 'length'): ?> <!-- コロン構文 -->
-				<p style="color: red; font-size: 10px; margin-top: 2px;">
-					パスワードは4文字以上で入力してください
-				</p>
-			<?php endif; ?>
 		</div>
 		
 		<input type="submit" value="ログイン">

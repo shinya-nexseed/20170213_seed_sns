@@ -5,9 +5,29 @@
 session_start();
 require('dbconnect.php');
 
-if (isset($_SESSION['login_member_id'])) {
+echo $_SESSION['time'] . '<br>';
+echo time() . '<br>';
+echo time() - $_SESSION['time'];
+// 60 * 60 = 3600 (１時間)
+// 60 * 60 * 24 = 86400 (１日)
+
+// Unixタイムスタンプとして取得します。Unixタイムスタンプとは1970年1月1日 00:00:00 GMTからの経過秒数です。PHP内部での日付や時刻の処理はUnixタイムスタンプで行われています。
+
+// ログイン判定プログラム
+// ①$_SESSION['login_member_id']が存在している
+// ②最後のアクション（ページの読み込み）から1時間以内である
+// セッションに保存した時間に１時間足した時間が今の時間より大きいと、１時間以上経過としてログインページへとばす
+if (isset($_SESSION['login_member_id']) && $_SESSION['time'] + 3600 > time()) {
+
+		$_SESSION['time'] = time();
+
 		// ログインしている
-		
+		$sql = 'SELECT * FROM `members` WHERE `member_id`=?';
+		$data = array($_SESSION['login_member_id']);
+
+		$stmt = $dbh->prepare($sql);
+		$stmt->execute($data);
+		$login_member = $stmt->fetch(PDO::FETCH_ASSOC);
 } else {
 	  // ログインしていない
 		header('Location: login.php');
@@ -32,15 +52,16 @@ if (!empty($_POST)) {
 		}
 }
 
-$sql = 'SELECT * FROM `members` WHERE `member_id`=?';
-$data = array($_SESSION['login_member_id']);
 
-$stmt = $dbh->prepare($sql);
-$stmt->execute($data);
-$login_member = $stmt->fetch(PDO::FETCH_ASSOC);
 
 // ツイートデータ全件取得
-$sql = 'SELECT * FROM `tweets`';
+// LEFT JOINを使用して複数テーブルからデータをまとめて取得
+// SELECT * FROM `基準テーブル` LEFT JOIN `連結テーブル` ON 基準テーブルの外部キー=連結テーブルの主キー
+// SELECT * FROM `tweets` LEFT JOIN `members` ON tweets.member_id=members.member_id
+$sql = 'SELECT t.*, m.nick_name, m.picture_path FROM `tweets` AS t LEFT JOIN `members` AS m ON t.member_id=m.member_id ORDER BY t.created DESC';
+
+// $sql = 'SELECT t.*, m.nick_name, m.picture_path FROM `tweets` t, `members` m WHERE t.member_id=m.member_id';
+
 $data = array();
 $stmt = $dbh->prepare($sql);
 $stmt->execute($data);
@@ -64,7 +85,7 @@ $stmt->execute($data);
 	<div>
 		<?php while($tweet = $stmt->fetch(PDO::FETCH_ASSOC)): ?>
 			<!-- $tweetにツイートのデータ一件が入っている -->
-			<?php echo $tweet['tweet_id']; ?> : <?php echo $tweet['tweet']; ?><br>
+			<?php echo $tweet['tweet_id']; ?> : <?php echo $tweet['tweet']; ?> (<img width="20" src="member_picture/<?php echo $tweet['picture_path']; ?>"><?php echo $tweet['nick_name']; ?>)<br>
 		<?php endwhile; ?>
 	</div>
 </body>

@@ -1,5 +1,6 @@
 <?php
 session_start(); // $_SESSIONの使用条件
+require('../dbconnect.php');
 // echo substr('abcdefg', 0) . '<br>';
 // echo substr('abcdefg', 1) . '<br>';
 // echo substr('abcdefg', 2) . '<br>';
@@ -70,7 +71,26 @@ if (!empty($_POST)) {
 						$errors['picture_path'] = 'blank';
 				}
 		}
-		
+
+    // メールアドレスの重複チェック
+    if (empty($errors)) {
+        // DBのmembersテーブルに入力されたメールアドレスと同じデータがあるかどうか検索し取得
+        try{
+            $sql = 'SELECT COUNT(*) AS `cnt` FROM `members` WHERE `email`=?';
+            $data = array($email);
+            $stmt = $dbh->prepare($sql);
+            $stmt->execute($data);
+            $record = $stmt->fetch(PDO::FETCH_ASSOC);
+            // var_dump($record);
+            if ($record['cnt'] > 0) {
+                // 同じメールアドレスがDB内に存在したため
+                $errors['email'] = 'duplicate';
+            }
+
+        } catch(PDOException $e) {
+            echo 'SQL文実行時エラー : ' . $e->message();
+        }
+    }
 
 		// エラーがなかった場合の処理
 		if (empty($errors)) {
@@ -158,6 +178,12 @@ if (!empty($_POST)) {
               	<p style="color: red; font-size: 10px; margin-top: 2px;">
               		メールアドレスを入力してください
               	</p>
+              <?php endif; ?>
+
+              <?php if(isset($errors['email']) && $errors['email'] == 'duplicate'): ?> <!-- コロン構文 -->
+                <p style="color: red; font-size: 10px; margin-top: 2px;">
+                  指定したメールアドレスは既に登録されています。
+                </p>
               <?php endif; ?>
             </div>
           </div>
