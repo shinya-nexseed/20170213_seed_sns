@@ -85,7 +85,7 @@ $stmt->execute($data);
 	<div>
 		<?php while($tweet = $stmt->fetch(PDO::FETCH_ASSOC)): ?>
 			<!-- $tweetにツイートのデータ一件が入っている -->
-			<?php echo $tweet['tweet_id']; ?> : <?php echo $tweet['tweet']; ?> (<img width="20" src="member_picture/<?php echo $tweet['picture_path']; ?>"><?php echo $tweet['nick_name']; ?>)<br>
+			<?php echo $tweet['tweet_id']; ?> : <?php echo $tweet['tweet']; ?> (<img width="20" src="member_picture/<?php echo $tweet['picture_path']; ?>"><?php echo $tweet['nick_name']; ?>)[<a href="view.php?tweet_id=<?php echo $tweet['tweet_id']; ?>">詳細</a>]<br>
 		<?php endwhile; ?>
 	</div>
 </body>

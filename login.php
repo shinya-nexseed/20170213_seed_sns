@@ -7,6 +7,14 @@ $password = '';
 
 $errors = array();
 
+// 自動ログイン機能
+if (isset($_COOKIE['email']) && $_COOKIE['email'] != '') {
+		// クッキーが保存されていれば、$_POSTをクッキーの情報から生成
+		$_POST['email'] = $_COOKIE['email'];
+		$_POST['password'] = $_COOKIE['password'];
+		$_POST['save'] = 'on';
+}
+
 // ログインボタンが押されたとき
 if (!empty($_POST)) {
 		$email = $_POST['email'];
@@ -29,6 +37,16 @@ if (!empty($_POST)) {
 						// echo 'ログイン処理成功';
 						$_SESSION['login_member_id'] = $record['member_id'];
 						$_SESSION['time'] = time();
+
+						// 自動ログイン設定
+						if ($_POST['save'] == 'on') {
+								// クッキーにログイン情報を保存
+								setcookie('email', $email, time() + 60*60*24*30);
+								setcookie('password', $password, time() + 60*60*24*30);
+								// setcookie(キー, 値, 保存期間);
+								// $_COOKIE['キー'] → 値
+						}
+
 						// ログインした際の時間をセッションに保存
 						header('Location: top.php');
 						exit();
@@ -66,6 +84,10 @@ if (!empty($_POST)) {
 		<div>
 			<label>パスワード</label><br>
 			<input type="password" name="password" value="<?php echo $password; ?>">
+		</div>
+		<div>
+			自動ログイン設定 <input type="checkbox" name="save" value="on">
+			<!-- $_POST['save'] = 'on'; -->
 		</div>
 		
 		<input type="submit" value="ログイン">
