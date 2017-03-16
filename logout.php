@@ -11,6 +11,15 @@ if (ini_get("session.use_cookies")) {
 }
 session_destroy();
 
+// Cookie情報も削除
+setcookie('email', '', time() - 3000);
+setcookie('password', '', time() - 3000);
+
 header('Location: top.php');
 exit();
 ?>
+
+
+
+
+

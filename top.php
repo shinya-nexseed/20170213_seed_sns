@@ -1,13 +1,16 @@
 <?php
 // $_SESSIONに保存されたログインユーザーのIDを使ってDBから
 // ログインユーザーの情報を取得し、名前と画像を画面に出力する
-
 session_start();
 require('dbconnect.php');
 
-echo $_SESSION['time'] . '<br>';
-echo time() . '<br>';
-echo time() - $_SESSION['time'];
+// デバッグ用
+echo '<br>';
+echo '<br>';
+
+// echo $_SESSION['time'] . '<br>';
+// echo time() . '<br>';
+// echo time() - $_SESSION['time'];
 // 60 * 60 = 3600 (１時間)
 // 60 * 60 * 24 = 86400 (１日)
 
@@ -33,7 +36,6 @@ if (isset($_SESSION['login_member_id']) && $_SESSION['time'] + 3600 > time()) {
 		header('Location: login.php');
 		exit();
 }
-echo $_SESSION['login_member_id'] . '<br>';
 
 // ツイートボタンが押された際
 if (!empty($_POST)) {
@@ -41,9 +43,9 @@ if (!empty($_POST)) {
 				// DBへの登録処理
 				$sql = 'INSERT INTO `tweets` SET `tweet`=?,
 																				 `member_id`=?,
-																				 `reply_tweet_id`=0,
+																				 `reply_tweet_id`=?,
 																				 `created`=NOW()';
-				$data = array($_POST['tweet'], $_SESSION['login_member_id']);
+				$data = array($_POST['tweet'], $_SESSION['login_member_id'], $_POST['reply_tweet_id']);
 				$stmt = $dbh->prepare($sql);
 				$stmt->execute($data);
 
@@ -65,33 +67,126 @@ $sql = 'SELECT t.*, m.nick_name, m.picture_path FROM `tweets` AS t LEFT JOIN `me
 $data = array();
 $stmt = $dbh->prepare($sql);
 $stmt->execute($data);
+
+// すべてのスーパーグローバル変数は、連想配列です。
+// 連想配列の一要素を取得するには？
+// $hoge = array('hoge', 'fuga');
+// echo $hoge[1];
+// $fuga = array('id' => 'hoge', 'name' => 'fuga');
+// echo $fuga['id'];
+
+// 返信の場合（パラメータが存在するとき）
+$re_str = '';
+if (isset($_REQUEST['tweet_id'])) {
+		// /top.php?tweet_id=3
+		// $_REQUEST = array('tweet_id' => '3');
+		
+		// Reが押されたツイートデータをDBから取得
+		$sql = 'SELECT * FROM `tweets` LEFT JOIN `members` ON tweets.member_id=members.member_id WHERE `tweet_id`=?';
+		// ？に入れるデータは配列で用意
+		$data = array($_REQUEST['tweet_id']);
+		$re_stmt = $dbh->prepare($sql);
+		$re_stmt->execute($data);
+
+		// $stmtはobject型なのでarray型に変換（fetch）
+		$re_tweet = $re_stmt->fetch(PDO::FETCH_ASSOC);
+		// テキストエリアに表示する文字列を作成
+		$re_str = '@' . $re_tweet['tweet'] . ' (' . $re_tweet['nick_name'] . ') -> ';
+}
 ?>
 
 <!DOCTYPE html>
-<html>
-<head>
-	<title></title>
-</head>
-<body>
-	<h2>ようこそ<?php echo $login_member['nick_name']; ?>さん</h2>
-	<p>あなたのユーザーIDは<?php echo $login_member['member_id']; ?>です [<a style="color: red; text-decoration: none;" href="logout.php">ログアウト</a>]</p>
-	<img src="member_picture/<?php echo $login_member['picture_path']; ?>" width="100">
-	<br>
-	<form method="POST" action="">
-		<textarea name="tweet" placeholder="ほげほげ" cols="50" row="5"></textarea><br>
-		<input type="submit" value="ツイート">
-	</form>
-	<!-- ツイートの一覧表示 -->
-	<div>
-		<?php while($tweet = $stmt->fetch(PDO::FETCH_ASSOC)): ?>
-			<!-- $tweetにツイートのデータ一件が入っている -->
-			<?php echo $tweet['tweet_id']; ?> : <?php echo $tweet['tweet']; ?> (<img width="20" src="member_picture/<?php echo $tweet['picture_path']; ?>"><?php echo $tweet['nick_name']; ?>)[<a href="view.php?tweet_id=<?php echo $tweet['tweet_id']; ?>">詳細</a>]<br>
-		<?php endwhile; ?>
-	</div>
-</body>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>SeedSNS</title>
+
+    <!-- Bootstrap -->
+    <link href="assets/css/bootstrap.css" rel="stylesheet">
+    <link href="assets/font-awesome/css/font-awesome.css" rel="stylesheet">
+    <link href="assets/css/form.css" rel="stylesheet">
+    <link href="assets/css/timeline.css" rel="stylesheet">
+    <link href="assets/css/main.css" rel="stylesheet">
+
+  </head>
+  <body>
+  <nav class="navbar navbar-default navbar-fixed-top">
+      <div class="container">
+          <!-- Brand and toggle get grouped for better mobile display -->
+          <div class="navbar-header page-scroll">
+              <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1">
+                  <span class="sr-only">Toggle navigation</span>
+                  <span class="icon-bar"></span>
+                  <span class="icon-bar"></span>
+                  <span class="icon-bar"></span>
+              </button>
+              <a class="navbar-brand" href="index.html"><span class="strong-title"><i class="fa fa-twitter-square"></i> Seed SNS</span></a>
+          </div>
+          <!-- Collect the nav links, forms, and other content for toggling -->
+          <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+              <ul class="nav navbar-nav navbar-right">
+                <li><a href="logout.php">ログアウト</a></li>
+              </ul>
+          </div>
+          <!-- /.navbar-collapse -->
+      </div>
+      <!-- /.container-fluid -->
+  </nav>
+
+  <div class="container">
+    <div class="row">
+      <div class="col-md-4 content-margin-top">
+        <legend>ようこそ<?php echo $login_member['nick_name']; ?>さん！</legend>
+        <form method="post" action="" class="form-horizontal" role="form">
+            <!-- つぶやき -->
+            <div class="form-group">
+              <label class="col-sm-4 control-label">つぶやき</label>
+              <div class="col-sm-8">
+                <textarea name="tweet" cols="50" rows="5" class="form-control" placeholder="例：Hello World!"><?php echo $re_str; ?></textarea>
+                <input type="hidden" name="reply_tweet_id" value="<?php echo $_REQUEST['tweet_id']; ?>">
+              </div>
+            </div>
+          <ul class="paging">
+            <input type="submit" class="btn btn-info" value="つぶやく">
+                &nbsp;&nbsp;&nbsp;&nbsp;
+                <li><a href="index.html" class="btn btn-default">前</a></li>
+                &nbsp;&nbsp;|&nbsp;&nbsp;
+                <li><a href="index.html" class="btn btn-default">次</a></li>
+          </ul>
+        </form>
+      </div>
+
+      <div class="col-md-8 content-margin-top">
+        <?php while($tweet = $stmt->fetch(PDO::FETCH_ASSOC)): ?>
+	        <div class="msg">
+	          <img src="member_picture/<?php echo $tweet['picture_path']; ?>" width="48" height="48">
+	          <p>
+	            <?php echo $tweet['tweet']; ?><span class="name"> (<?php echo $tweet['nick_name']; ?>) </span>
+	            [<a href="top.php?tweet_id=<?php echo $tweet['tweet_id']; ?>">Re</a>]
+	          </p>
+	          <p class="day">
+	            <a href="view.php?tweet_id=<?php echo $tweet['tweet_id']; ?>">
+	              <?php echo $tweet['created']; ?>
+	            </a>
+	            [<a href="#" style="color: #00994C;">編集</a>]
+	            [<a href="#" style="color: #F33;">削除</a>]
+	          </p>
+	        </div>
+        <?php endwhile; ?>
+      </div>
+
+    </div>
+  </div>
+
+    <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+    <script src="assets/js/jquery-3.1.1.js"></script>
+    <script src="assets/js/jquery-migrate-1.4.1.js"></script>
+    <script src="assets/js/bootstrap.js"></script>
+  </body>
 </html>
-
-
 
 
 
