@@ -56,17 +56,7 @@ if (!empty($_POST)) {
 
 
 
-// ツイートデータ全件取得
-// LEFT JOINを使用して複数テーブルからデータをまとめて取得
-// SELECT * FROM `基準テーブル` LEFT JOIN `連結テーブル` ON 基準テーブルの外部キー=連結テーブルの主キー
-// SELECT * FROM `tweets` LEFT JOIN `members` ON tweets.member_id=members.member_id
-$sql = 'SELECT t.*, m.nick_name, m.picture_path FROM `tweets` AS t LEFT JOIN `members` AS m ON t.member_id=m.member_id ORDER BY t.created DESC';
 
-// $sql = 'SELECT t.*, m.nick_name, m.picture_path FROM `tweets` t, `members` m WHERE t.member_id=m.member_id';
-
-$data = array();
-$stmt = $dbh->prepare($sql);
-$stmt->execute($data);
 
 // すべてのスーパーグローバル変数は、連想配列です。
 // 連想配列の一要素を取得するには？
@@ -93,6 +83,53 @@ if (isset($_REQUEST['tweet_id'])) {
 		// テキストエリアに表示する文字列を作成
 		$re_str = '@' . $re_tweet['tweet'] . ' (' . $re_tweet['nick_name'] . ') -> ';
 }
+
+// ページング機能
+$page = '';
+// パラメータのページ番号を取得
+if (isset($_REQUEST['page'])) {
+    $page = $_REQUEST['page'];
+}
+
+// パラメータが存在しない場合はページ番号を1とする
+if ($page == '') {
+    $page = 1;
+}
+
+// 1以下のイレギュラーな数値が入ってきた場合はページ番号を1とする
+$page = max($page, 1);
+// echo max(1,10,-100,600,600.001) . '<br>';
+
+// データの件数から最大ページ数を計算する
+$sql = 'SELECT COUNT(*) AS `cnt` FROM `tweets`';
+$stmt = $dbh->prepare($sql);
+$stmt->execute();
+$record = $stmt->fetch(PDO::FETCH_ASSOC);
+$max_page = ceil($record['cnt'] / 5); // 小数点以下切り上げ
+
+// パラメータのページ番号が最大ページ数を超えていれば、最後のページ数とする
+$page = min($page, $max_page);
+
+// 1ページに表示する件数分だけデータを取得する
+$page = ceil($page);
+echo '現在のページ数 : ' . $page;
+
+$start = ($page - 1) * 5;
+
+
+// ツイートデータ全件取得
+// LEFT JOINを使用して複数テーブルからデータをまとめて取得
+// SELECT * FROM `基準テーブル` LEFT JOIN `連結テーブル` ON 基準テーブルの外部キー=連結テーブルの主キー
+// SELECT * FROM `tweets` LEFT JOIN `members` ON tweets.member_id=members.member_id
+// $sql = 'SELECT * FROM `tweets` ORDER BY created DESC LIMIT 0, 3';
+$sql = sprintf('SELECT t.*, m.nick_name, m.picture_path FROM `tweets` AS t LEFT JOIN `members` AS m ON t.member_id=m.member_id ORDER BY t.created DESC LIMIT %d, 5', $start);
+
+// $sql = 'SELECT t.*, m.nick_name, m.picture_path FROM `tweets` t, `members` m WHERE t.member_id=m.member_id';
+
+// $data = array($start);
+$stmt = $dbh->prepare($sql);
+$stmt->execute();
+
 ?>
 
 <!DOCTYPE html>
@@ -151,10 +188,23 @@ if (isset($_REQUEST['tweet_id'])) {
             </div>
           <ul class="paging">
             <input type="submit" class="btn btn-info" value="つぶやく">
-                &nbsp;&nbsp;&nbsp;&nbsp;
-                <li><a href="index.html" class="btn btn-default">前</a></li>
-                &nbsp;&nbsp;|&nbsp;&nbsp;
-                <li><a href="index.html" class="btn btn-default">次</a></li>
+            &nbsp;&nbsp;&nbsp;&nbsp;
+            <?php if($page > 1): ?>
+                <li><a href="top.php?page=<?php echo $page - 1; ?>" class="btn btn-default">前</a></li>
+            <?php else: ?>
+              <li>
+                前
+              </li>
+            <?php endif; ?>
+
+            &nbsp;&nbsp;|&nbsp;&nbsp;
+            <?php if($page < $max_page): ?>
+                <li><a href="top.php?page=<?php echo $page + 1; ?>" class="btn btn-default">次</a></li>
+            <?php else: ?>
+              <li>
+                次
+              </li>
+            <?php endif; ?>
           </ul>
         </form>
       </div>
@@ -171,8 +221,13 @@ if (isset($_REQUEST['tweet_id'])) {
 	            <a href="view.php?tweet_id=<?php echo $tweet['tweet_id']; ?>">
 	              <?php echo $tweet['created']; ?>
 	            </a>
-	            [<a href="#" style="color: #00994C;">編集</a>]
-	            [<a href="#" style="color: #F33;">削除</a>]
+              <?php if($tweet['reply_tweet_id'] > 0): ?>
+                <a href="view.php?tweet_id=<?php echo $tweet['reply_tweet_id']; ?>">返信元のつぶやき</a>
+              <?php endif; ?>
+              <?php if($_SESSION['login_member_id'] == $tweet['member_id']): ?>
+  	            [<a href="#" style="color: #00994C;">編集</a>]
+  	            [<a href="delete.php?tweet_id=<?php echo $tweet['tweet_id']; ?>" style="color: #F33;">削除</a>]
+              <?php endif; ?>
 	          </p>
 	        </div>
         <?php endwhile; ?>
