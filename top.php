@@ -22,36 +22,36 @@ echo '<br>';
 // セッションに保存した時間に１時間足した時間が今の時間より大きいと、１時間以上経過としてログインページへとばす
 if (isset($_SESSION['login_member_id']) && $_SESSION['time'] + 3600 > time()) {
 
-		$_SESSION['time'] = time();
+    $_SESSION['time'] = time();
 
-		// ログインしている
-		$sql = 'SELECT * FROM `members` WHERE `member_id`=?';
-		$data = array($_SESSION['login_member_id']);
+    // ログインしている
+    $sql  = 'SELECT * FROM `members` WHERE `member_id`=?';
+    $data = array($_SESSION['login_member_id']);
 
-		$stmt = $dbh->prepare($sql);
-		$stmt->execute($data);
-		$login_member = $stmt->fetch(PDO::FETCH_ASSOC);
+    $stmt = $dbh->prepare($sql);
+    $stmt->execute($data);
+    $login_member = $stmt->fetch(PDO::FETCH_ASSOC);
 } else {
-	  // ログインしていない
-		header('Location: login.php');
-		exit();
+    // ログインしていない
+    header('Location: login.php');
+    exit();
 }
 
 // ツイートボタンが押された際
-if (!empty($_POST)) {
-		if ($_POST['tweet'] != '') {
-				// DBへの登録処理
-				$sql = 'INSERT INTO `tweets` SET `tweet`=?,
-																				 `member_id`=?,
-																				 `reply_tweet_id`=?,
-																				 `created`=NOW()';
-				$data = array($_POST['tweet'], $_SESSION['login_member_id'], $_POST['reply_tweet_id']);
-				$stmt = $dbh->prepare($sql);
-				$stmt->execute($data);
+if (!empty($_POST['tweet'])) {
+    if ($_POST['tweet'] != '') {
+        // DBへの登録処理
+        $sql = 'INSERT INTO `tweets` SET `tweet`=?,
+                                         `member_id`=?,
+                                         `reply_tweet_id`=?,
+                                         `created`=NOW()';
+        $data = array($_POST['tweet'], $_SESSION['login_member_id'], $_POST['reply_tweet_id']);
+        $stmt = $dbh->prepare($sql);
+        $stmt->execute($data);
 
-				header('Location: top.php');
-				exit();
-		}
+        header('Location: top.php');
+        exit();
+    }
 }
 
 
@@ -68,20 +68,20 @@ if (!empty($_POST)) {
 // 返信の場合（パラメータが存在するとき）
 $re_str = '';
 if (isset($_REQUEST['tweet_id'])) {
-		// /top.php?tweet_id=3
-		// $_REQUEST = array('tweet_id' => '3');
-		
-		// Reが押されたツイートデータをDBから取得
-		$sql = 'SELECT * FROM `tweets` LEFT JOIN `members` ON tweets.member_id=members.member_id WHERE `tweet_id`=?';
-		// ？に入れるデータは配列で用意
-		$data = array($_REQUEST['tweet_id']);
-		$re_stmt = $dbh->prepare($sql);
-		$re_stmt->execute($data);
+    // /top.php?tweet_id=3
+    // $_REQUEST = array('tweet_id' => '3');
+    
+    // Reが押されたツイートデータをDBから取得
+    $sql = 'SELECT * FROM `tweets` LEFT JOIN `members` ON tweets.member_id=members.member_id WHERE `tweet_id`=?';
+    // ？に入れるデータは配列で用意
+    $data = array($_REQUEST['tweet_id']);
+    $re_stmt = $dbh->prepare($sql);
+    $re_stmt->execute($data);
 
-		// $stmtはobject型なのでarray型に変換（fetch）
-		$re_tweet = $re_stmt->fetch(PDO::FETCH_ASSOC);
-		// テキストエリアに表示する文字列を作成
-		$re_str = '@' . $re_tweet['tweet'] . ' (' . $re_tweet['nick_name'] . ') -> ';
+    // $stmtはobject型なのでarray型に変換（fetch）
+    $re_tweet = $re_stmt->fetch(PDO::FETCH_ASSOC);
+    // テキストエリアに表示する文字列を作成
+    $re_str = '@' . $re_tweet['tweet'] . ' (' . $re_tweet['nick_name'] . ') -> ';
 }
 
 // ページング機能
@@ -130,6 +130,23 @@ $sql = sprintf('SELECT t.*, m.nick_name, m.picture_path FROM `tweets` AS t LEFT 
 $stmt = $dbh->prepare($sql);
 $stmt->execute();
 
+
+// いいね！機能のロジック実装
+if (!empty($_POST)) {
+    if ($_POST['like'] == 'like') {
+        // いいね！されたときの処理
+        $sql = 'INSERT INTO `likes` SET `member_id`=?, `tweet_id`=?';
+        $data = array($_SESSION['login_member_id'], $_POST['tweet_id']);
+        $like_stmt = $dbh->prepare($sql);
+        $like_stmt->execute($data);
+    } else {
+        // いいね！取り消しされたときの処理
+        $sql = 'DELETE FROM `likes` WHERE `member_id`=? AND `tweet_id`=?';
+        $data = array($_SESSION['login_member_id'], $_POST['tweet_id']);
+        $like_stmt = $dbh->prepare($sql);
+        $like_stmt->execute($data);
+    }
+}
 ?>
 
 <!DOCTYPE html>
@@ -211,25 +228,53 @@ $stmt->execute();
 
       <div class="col-md-8 content-margin-top">
         <?php while($tweet = $stmt->fetch(PDO::FETCH_ASSOC)): ?>
-	        <div class="msg">
-	          <img src="member_picture/<?php echo $tweet['picture_path']; ?>" width="48" height="48">
-	          <p>
-	            <?php echo $tweet['tweet']; ?><span class="name"> (<?php echo $tweet['nick_name']; ?>) </span>
-	            [<a href="top.php?tweet_id=<?php echo $tweet['tweet_id']; ?>">Re</a>]
-	          </p>
-	          <p class="day">
-	            <a href="view.php?tweet_id=<?php echo $tweet['tweet_id']; ?>">
-	              <?php echo $tweet['created']; ?>
-	            </a>
+            <?php
+                // いいね！済みかどうかの判定処理
+                $sql = 'SELECT * FROM `likes` WHERE `member_id`=? AND `tweet_id`=?';
+                $data = array($_SESSION['login_member_id'], $tweet['tweet_id']);
+                $is_like_stmt = $dbh->prepare($sql);
+                $is_like_stmt->execute($data);
+
+                // いいね！数カウント処理
+                $sql = 'SELECT COUNT(*) AS total FROM `likes` WHERE `tweet_id`=?';
+                $data = array($tweet['tweet_id']);
+                $count_stmt = $dbh->prepare($sql);
+                $count_stmt->execute($data);
+                $count = $count_stmt->fetch(PDO::FETCH_ASSOC);
+            ?>
+          <div class="msg">
+            <img src="member_picture/<?php echo $tweet['picture_path']; ?>" width="48" height="48">
+            <p>
+              <?php echo $tweet['tweet']; ?><span class="name"> (<?php echo $tweet['nick_name']; ?>) </span>
+              [<a href="top.php?tweet_id=<?php echo $tweet['tweet_id']; ?>">Re</a>]
+            </p>
+            <p class="day">
+              <a href="view.php?tweet_id=<?php echo $tweet['tweet_id']; ?>">
+                <?php echo $tweet['created']; ?>
+              </a>
               <?php if($tweet['reply_tweet_id'] > 0): ?>
                 <a href="view.php?tweet_id=<?php echo $tweet['reply_tweet_id']; ?>">返信元のつぶやき</a>
               <?php endif; ?>
               <?php if($_SESSION['login_member_id'] == $tweet['member_id']): ?>
-  	            [<a href="#" style="color: #00994C;">編集</a>]
-  	            [<a href="delete.php?tweet_id=<?php echo $tweet['tweet_id']; ?>" style="color: #F33;">削除</a>]
+                [<a href="#" style="color: #00994C;">編集</a>]
+                [<a href="delete.php?tweet_id=<?php echo $tweet['tweet_id']; ?>" style="color: #F33;">削除</a>]
               <?php endif; ?>
-	          </p>
-	        </div>
+              <form method="POST" action="">
+                いいね！数 : <?php echo $count['total']; ?> 
+                <?php if($is_like = $is_like_stmt->fetch(PDO::FETCH_ASSOC)): ?>
+                  <!-- いいね！データが存在する（削除ボタン表示） -->
+                  <input type="hidden" name="like" value="unlike">
+                  <input type="hidden" name="tweet_id" value="<?php echo $tweet['tweet_id']; ?>">
+                  <input type="submit" value="いいね！取り消し" class="btn btn-danger btn-xs">
+                <?php else: ?>
+                  <!-- いいね！データが存在しない（いいねボタン表示） -->
+                  <input type="hidden" name="like" value="like">
+                  <input type="hidden" name="tweet_id" value="<?php echo $tweet['tweet_id']; ?>">
+                  <input type="submit" value="いいね！" class="btn btn-primary btn-xs">
+                <?php endif; ?>
+              </form>
+            </p>
+          </div>
         <?php endwhile; ?>
       </div>
 
