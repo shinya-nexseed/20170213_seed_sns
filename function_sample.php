@@ -50,6 +50,36 @@ own_echo('ほげほげ');
 own_echo('ふがふが');
 own_echo('Hello');
 
+// 複数の引数
+function plus($num1, $num2) { // タプル処理
+    // $num1 = 10;
+    // $num2 = 20;
+    $result = $num1 + $num2;
+    echo $result . '<br>';
+}
+
+// 実行
+plus(10, 20);
+plus(22, 11);
+
+
+// 戻り値（返り値）
+function minus($num1, $num2) {
+    $result = $num1 - $num2;
+    // echo $result;
+    return $result; // 戻り値
+}
+
+echo minus(4, 1);
+$result = minus(10, 4);
+echo '<br>';
+echo $result;
+// min(), max(), ceil()等はすべて戻り値付きの関数
+$result2 = ceil(5.12);
+echo ceil(4.5);
+echo ceil(3.14) - 1;
+
+
 ?>
 
 

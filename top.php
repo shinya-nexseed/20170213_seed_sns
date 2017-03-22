@@ -70,7 +70,8 @@ $re_str = '';
 if (isset($_REQUEST['tweet_id'])) {
     // /top.php?tweet_id=3
     // $_REQUEST = array('tweet_id' => '3');
-    
+    // $_REQUESTは$_GET, $_POST, $_COOKIEの値をすべて持つ変数
+
     // Reが押されたツイートデータをDBから取得
     $sql = 'SELECT * FROM `tweets` LEFT JOIN `members` ON tweets.member_id=members.member_id WHERE `tweet_id`=?';
     // ？に入れるデータは配列で用意
@@ -122,7 +123,17 @@ $start = ($page - 1) * 5;
 // SELECT * FROM `基準テーブル` LEFT JOIN `連結テーブル` ON 基準テーブルの外部キー=連結テーブルの主キー
 // SELECT * FROM `tweets` LEFT JOIN `members` ON tweets.member_id=members.member_id
 // $sql = 'SELECT * FROM `tweets` ORDER BY created DESC LIMIT 0, 3';
-$sql = sprintf('SELECT t.*, m.nick_name, m.picture_path FROM `tweets` AS t LEFT JOIN `members` AS m ON t.member_id=m.member_id ORDER BY t.created DESC LIMIT %d, 5', $start);
+
+$search_word = '';
+if (isset($_GET['search_word']) && !empty($_GET['search_word'])) {
+    // 検索の場合の処理
+    $search_word = $_GET['search_word'];
+    $sql = sprintf('SELECT t.*, m.nick_name, m.picture_path FROM `tweets` AS t LEFT JOIN `members` AS m ON t.member_id=m.member_id WHERE t.tweet LIKE "%%%s%%" ORDER BY t.created DESC LIMIT %d, 5', $_GET['search_word'], $start);
+} else {
+    // 通常の処理
+    $sql = sprintf('SELECT t.*, m.nick_name, m.picture_path FROM `tweets` AS t LEFT JOIN `members` AS m ON t.member_id=m.member_id ORDER BY t.created DESC LIMIT %d, 5', $start);
+}
+
 
 // $sql = 'SELECT t.*, m.nick_name, m.picture_path FROM `tweets` t, `members` m WHERE t.member_id=m.member_id';
 
@@ -136,15 +147,19 @@ if (!empty($_POST)) {
     if ($_POST['like'] == 'like') {
         // いいね！されたときの処理
         $sql = 'INSERT INTO `likes` SET `member_id`=?, `tweet_id`=?';
-        $data = array($_SESSION['login_member_id'], $_POST['tweet_id']);
+        $data = array($_SESSION['login_member_id'], $_POST['like_tweet_id']);
         $like_stmt = $dbh->prepare($sql);
         $like_stmt->execute($data);
+        header('Location: top.php');
+        exit();
     } else {
         // いいね！取り消しされたときの処理
         $sql = 'DELETE FROM `likes` WHERE `member_id`=? AND `tweet_id`=?';
-        $data = array($_SESSION['login_member_id'], $_POST['tweet_id']);
+        $data = array($_SESSION['login_member_id'], $_POST['like_tweet_id']);
         $like_stmt = $dbh->prepare($sql);
         $like_stmt->execute($data);
+        header('Location: top.php');
+        exit();
     }
 }
 ?>
@@ -204,10 +219,16 @@ if (!empty($_POST)) {
               </div>
             </div>
           <ul class="paging">
+            <?php 
+                $word = '';
+                if (isset($_GET['search_word'])) {
+                    $word = '&search_word=' . $_GET['search_word'];
+               }
+             ?>
             <input type="submit" class="btn btn-info" value="つぶやく">
             &nbsp;&nbsp;&nbsp;&nbsp;
             <?php if($page > 1): ?>
-                <li><a href="top.php?page=<?php echo $page - 1; ?>" class="btn btn-default">前</a></li>
+                <li><a href="top.php?page=<?php echo $page - 1; ?><?php echo $word; ?>" class="btn btn-default">前</a></li>
             <?php else: ?>
               <li>
                 前
@@ -216,7 +237,7 @@ if (!empty($_POST)) {
 
             &nbsp;&nbsp;|&nbsp;&nbsp;
             <?php if($page < $max_page): ?>
-                <li><a href="top.php?page=<?php echo $page + 1; ?>" class="btn btn-default">次</a></li>
+                <li><a href="top.php?page=<?php echo $page + 1; ?><?php echo $word; ?>" class="btn btn-default">次</a></li>
             <?php else: ?>
               <li>
                 次
@@ -227,6 +248,11 @@ if (!empty($_POST)) {
       </div>
 
       <div class="col-md-8 content-margin-top">
+        <!-- 検索窓 -->
+        <form method="GET" action="" class="form-horizontal" role="form">
+          <input type="text" name="search_word" value="<?php echo $search_word; ?>">
+          <input type="submit" value="検索" class="btn btn-success btn-xs">
+        </form>
         <?php while($tweet = $stmt->fetch(PDO::FETCH_ASSOC)): ?>
             <?php
                 // いいね！済みかどうかの判定処理
@@ -256,7 +282,7 @@ if (!empty($_POST)) {
                 <a href="view.php?tweet_id=<?php echo $tweet['reply_tweet_id']; ?>">返信元のつぶやき</a>
               <?php endif; ?>
               <?php if($_SESSION['login_member_id'] == $tweet['member_id']): ?>
-                [<a href="#" style="color: #00994C;">編集</a>]
+                [<a href="edit.php?tweet_id=<?php echo $tweet['tweet_id']; ?>" style="color: #00994C;">編集</a>]
                 [<a href="delete.php?tweet_id=<?php echo $tweet['tweet_id']; ?>" style="color: #F33;">削除</a>]
               <?php endif; ?>
               <form method="POST" action="">
@@ -264,12 +290,12 @@ if (!empty($_POST)) {
                 <?php if($is_like = $is_like_stmt->fetch(PDO::FETCH_ASSOC)): ?>
                   <!-- いいね！データが存在する（削除ボタン表示） -->
                   <input type="hidden" name="like" value="unlike">
-                  <input type="hidden" name="tweet_id" value="<?php echo $tweet['tweet_id']; ?>">
+                  <input type="hidden" name="like_tweet_id" value="<?php echo $tweet['tweet_id']; ?>">
                   <input type="submit" value="いいね！取り消し" class="btn btn-danger btn-xs">
                 <?php else: ?>
                   <!-- いいね！データが存在しない（いいねボタン表示） -->
                   <input type="hidden" name="like" value="like">
-                  <input type="hidden" name="tweet_id" value="<?php echo $tweet['tweet_id']; ?>">
+                  <input type="hidden" name="like_tweet_id" value="<?php echo $tweet['tweet_id']; ?>">
                   <input type="submit" value="いいね！" class="btn btn-primary btn-xs">
                 <?php endif; ?>
               </form>
