@@ -83,6 +83,8 @@ if (isset($_REQUEST['tweet_id'])) {
     $re_tweet = $re_stmt->fetch(PDO::FETCH_ASSOC);
     // テキストエリアに表示する文字列を作成
     $re_str = '@' . $re_tweet['tweet'] . ' (' . $re_tweet['nick_name'] . ') -> ';
+} else {
+  $_REQUEST['tweet_id'] = 0;
 }
 
 // ページング機能

@@ -1,7 +1,7 @@
 <?php
 $dsn = 'mysql:dbname=seed_sns;host=localhost';
 $user = 'root';
-$password = '';
+$password = 'mysql';
 
 
 $dbh = new PDO($dsn, $user, $password);
