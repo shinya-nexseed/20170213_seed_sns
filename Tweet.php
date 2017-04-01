@@ -42,12 +42,52 @@ class Tweet {
       // findById()
       // getLoginUser()
       // isLogin() ← ログインしてるかどうかの判定
+        // ログインしていればユーザーの情報を、していなければfalseを返す
 
+    public function findByMemberId($id) {
+        $sql = 'SELECT * FROM `tweets` WHERE `member_id`=?';
+        $data = array($id);
+        $stmt = $this->dbh->prepare($sql);
+        $stmt->execute($data);
+        $tweets = array();
+        while ($tweet = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $tweets[] = $tweet;
+        }
+        return $tweets;
+    }
 
+    public function insert($tweet, $member_id, $reply_id) {
+        $sql = 'INSERT INTO `tweets` SET `tweet`=?, `member_id`=?, `reply_tweet_id`=?';
+        $data = array($tweet, $member_id, $reply_id);
+        $stmt = $this->dbh->prepare($sql);
+        $stmt->execute($data);
+
+        header('Location: objects.php');
+        exit();
+        // header問題
+        // header関数を使用するより前に出力をするとエラーになる
+        // Cannot modify header informationエラー
+        // 回避策l : 出力を切る
+        // 回避策2 : JSのコードで遷移する
+        echo '<script>location.href = "objects.php";</script>';
+    }
+
+    public function delete($id) {
+        $sql = 'DELETE FROM `tweets` WHERE `tweet_id`=?';
+        $data = array($id);
+        $stmt = $this->dbh->prepare($sql);
+        $stmt->execute($data);
+        
+        // header('Location: objects.php');
+        // exit();
+    }
 
 
 }
 ?>
+
+
+
 
 
 
